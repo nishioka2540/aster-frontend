@@ -66,6 +66,8 @@ export function ShiftReview() {
         return () => { active = false; };
     }, [requestId]);
     const reviews = Object.fromEntries((schedule?.days ?? []).map((day) => [day.date, day]));
+    const [notifyLine, setNotifyLine] = useState(true);
+    const [completionMessage, setCompletionMessage] = useState('');
     const [completed, setCompleted] = useState(false);
     const dates = schedule?.days.filter((day) => day.date >= from && day.date <= to).map((day) => day.date) ?? [];
     // 選択日が新しい期間から外れた場合は先頭日へ切り替える。
@@ -156,22 +158,23 @@ export function ShiftReview() {
                 <Box sx={{ mt: 9 }}>
                     <Divider />
                     <FormControlLabel sx={{ mx: 0, '& .MuiFormControlLabel-label': { fontSize: 14 } }}
-                        control={<Checkbox size="small" checked={false} disabled sx={{ p: 0, mr: 1, my: 1 }} />}
-                        label="確定後にキャストにLINE通知をする（未対応）" />
+                        control={<Checkbox size="small" checked={notifyLine} onChange={(_, checked) => setNotifyLine(checked)} disabled={saving} sx={{ p: 0, mr: 1, my: 1 }} />}
+                        label="確定後にキャストにLINE通知をする" />
                     <Typography fontSize={14}>※選択範囲のすべての日付を決定すると確定できます</Typography>
                     <Button variant="contained" disabled={!allConfirmed || completed || saving || scheduleLoading || schedule?.confirmed} endIcon={<CheckCircleOutlineIcon />} onClick={async () => {
                         if (!requestId || saving) return;
                         setSaving(true);
                         setError('');
                         try {
-                            await confirmSchedule(requestId, from, to);
+                            const result = await confirmSchedule(requestId, from, to, notifyLine);
+                            setCompletionMessage(result.message);
                             setCompleted(true);
                             setSchedule(await getScheduleReview(requestId));
                         } catch (error) { setError(error instanceof Error ? error.message : '確定に失敗しました。'); }
                         finally { setSaving(false); }
                     }}
                         sx={{ display: 'flex', mx: 'auto', mt: 3.5, minHeight: 56, borderRadius: 2 }}>シフトを確定する</Button>
-                    {completed && <Alert severity="success" sx={{ mt: 2 }}>期間のシフトを確定し、保存しました。</Alert>}
+                    {completed && <Alert severity="success" sx={{ mt: 2 }}>{completionMessage}</Alert>}
                 </Box>
             </>}
         </Container>

@@ -148,10 +148,10 @@ export function RequestShift() {
                 {blocked && <Alert severity="info" sx={{ mt: 2 }}>未確定のシフトがあるため、新規の提出依頼は作成できません。</Alert>}
                 {blocked && existingRequest && <Box sx={{ mt: 2 }}>
                     <Typography color="error" fontSize={14} fontWeight={600}>
-                        ※依頼内容を修正して保存すると、キャスト全員に必ず通知が送信されます。
+                        ※依頼内容を修正して保存すると、LINE連携済みのキャスト全員に通知を登録します。
                     </Typography>
                     <Typography color="text.secondary" fontSize={13} sx={{ mt: 1 }}>
-                        通知機能は未対応のため、現在は保存しても通知されません。
+                        通知の受信には公式アカウントの友だち追加が必要です。
                     </Typography>
                     {editing && <Typography color="error" fontSize={13} sx={{ mt: 1 }}>期間を変更すると提出済みシフトは下書きに戻り、編成済みシフトも再決定が必要になります。入力済みの希望シフトは保持されます。</Typography>}
                     {!editing ? <Button type="button" variant="outlined" disabled={loading || sending}

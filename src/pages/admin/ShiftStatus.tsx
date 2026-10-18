@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Alert, Box, Button, Container, LinearProgress, List, ListItem, MenuItem, TextField, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, Container, LinearProgress, List, ListItem, MenuItem, TextField, Typography } from '@mui/material';
+import { remindUnsubmitted } from '../../api/shiftRequestApi';
+import { useRef } from 'react';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ListItemButton } from '@mui/material';
@@ -24,6 +26,8 @@ export function ShiftStatus() {
     // 受付中の依頼を保持し、選択した依頼の提出状況を表示する。
     const [periods, setPeriods] = useState<ShiftStatusPeriod[]>([]);
     const [selectedId, setSelectedId] = useState<number | null>(null);
+    const reminderLock = useRef(false);
+    const [reminding, setReminding] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -76,11 +80,17 @@ export function ShiftStatus() {
                                 aria-label="シフト提出率"
                                 sx={{ height: 16, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', '& .MuiLinearProgress-bar': { bgcolor: '#4054f5' } }} />
                         </Box>
-                        {/* 通知APIは未接続のため、送信操作は無効にしている。 */}
-                        <Tooltip title="通知機能は準備中です">
-                            <span><Button variant="outlined" disabled endIcon={<NotificationsNoneIcon />}
-                                sx={{ borderRadius: 5, whiteSpace: 'nowrap', px: 2 }}>未提出者に通知</Button></span>
-                        </Tooltip>
+                        <Button variant="outlined" disabled={reminding || !period.unsubmitted.length} endIcon={<NotificationsNoneIcon />}
+                            onClick={async () => {
+                                if (reminderLock.current) return;
+                                reminderLock.current = true;
+                                setReminding(true);
+                                setError('');
+                                setSuccessMessage(null);
+                                try { setSuccessMessage((await remindUnsubmitted(period.id)).message); }
+                                catch (cause) { setError(cause instanceof Error ? cause.message : '通知に失敗しました。'); }
+                                finally { reminderLock.current = false; setReminding(false); }
+                            }} sx={{ borderRadius: 5, whiteSpace: 'nowrap', px: 2 }}>{reminding ? '受付中…' : '未提出者に通知'}</Button>
                     </Box>
                     {/* APIが返した未提出・提出済み一覧を同じレイアウトで描画する。 */}
                     {([

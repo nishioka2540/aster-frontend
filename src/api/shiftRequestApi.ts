@@ -34,3 +34,6 @@ export const updateShiftRequest = (id: number, payload: ShiftRequestPayload) =>
 /** 管理者の編成画面向けに確定済み期間も取得する。 */
 export const getScheduleRequests = () =>
     apiClient<{ data: AcceptingShiftRequest[] }>('/api/shift-requests/accepting?include_confirmed=1');
+
+export const remindUnsubmitted = (id: number) =>
+    apiClient<{ message: string }>(`/api/admin/shift-requests/${id}/remind`, { method: 'POST' });
