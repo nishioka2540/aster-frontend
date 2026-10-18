@@ -74,7 +74,11 @@ export function RequestShift() {
                 setExistingRequest(request);
                 applyExistingRequest(request);
             } else {
-                setDates((current) => ({ ...current, period_start: dayjs(data.period_start) }));
+                setDates({
+                    period_start: data.period_start ? dayjs(data.period_start) : null,
+                    period_end: null,
+                    submission_deadline: data.submission_deadline ? dayjs(data.submission_deadline) : null,
+                });
             }
         }).catch((error) => { if (active) setResult({ severity: 'error', message: error.message }); })
           .finally(() => { if (active) setLoading(false); });

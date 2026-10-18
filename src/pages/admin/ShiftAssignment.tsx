@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ja';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Alert, Box, Button, Chip, Container, FormControlLabel, IconButton, Paper, Switch, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, Container, FormControlLabel, IconButton, Paper, Switch, List, ListItem, ListItemText, Typography } from '@mui/material';
 import { DesktopTimePicker } from '@mui/x-date-pickers/DesktopTimePicker';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -33,15 +33,20 @@ export function ShiftAssignment() {
     const [error, setError] = useState('');
     const [loaded, setLoaded] = useState(false);
     const [confirmed, setConfirmed] = useState(false);
+    const [editing, setEditing] = useState(false);
+    const [savedCasts, setSavedCasts] = useState<CastAssignment[]>([]);
+    const readOnly = confirmed && !editing;
     useEffect(() => {
         let active = true;
         setLoading(true);
         setError('');
         setCasts([]);
         setLoaded(false);
+        setConfirmed(false);
+        setEditing(false);
         if (!validRequest || !validDate) { setLoading(false); return; }
         getScheduleAssignments(requestId, date).then((data) => {
-            if (active) { setLoaded(true); setCasts(data.casts); setConfirmed(data.confirmed); }
+            if (active) { setLoaded(true); setCasts(data.casts); setSavedCasts(data.casts); setConfirmed(data.confirmed); }
         }).catch((error) => { if (active) setError(error.message); })
           .finally(() => { if (active) setLoading(false); });
         return () => { active = false; };
@@ -71,17 +76,30 @@ export function ShiftAssignment() {
                 <Typography component="h1" fontSize={20} fontWeight={600}>{validDate ? dayjs(date).locale('ja').format('M月D日(ddd)') : 'シフト割り当て'}</Typography>
             </Box>
             {error && <Alert severity="error">{error}</Alert>}
-            {confirmed && <Alert severity="info">この期間は確定済みです。</Alert>}
+            {confirmed && <Alert severity="info">この日のシフトは確定済みです。</Alert>}
             {!validDate || !validRequest ? <Alert severity="error">確認画面で編集する日付を選択してください。</Alert> : <>
                 <Typography sx={{ mb: 2, px: 0.5 }}>出勤　{casts.filter((cast) => cast.work).length}人</Typography>
                 {loaded && !casts.length && <Alert severity="info" sx={{ mb: 2 }}>この日に出勤可能なキャストはいません。</Alert>}
+                {readOnly ? <>
+                    <List aria-label="確定済みの出勤キャスト">
+                        {casts.filter((cast) => cast.work).map((cast) => <ListItem key={cast.id} divider>
+                            <ListItemText primary={cast.name} secondary={<>
+                                {cast.start} 〜 {cast.end}
+                                {cast.reserved && ' ／ 予約・同伴あり'}
+                                {cast.note && ` ／ 備考: ${cast.note}`}
+                            </>} />
+                        </ListItem>)}
+                    </List>
+                    {!casts.some((cast) => cast.work) && <Typography sx={{ my: 2 }}>出勤するキャストはいません。</Typography>}
+                    <Button fullWidth variant="outlined" disabled={loading || !loaded} onClick={() => setEditing(true)} sx={{ mt: 2 }}>編集する</Button>
+                </> : <>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {casts.map((cast) => <Paper component="section" aria-label={`${cast.name}の割り当て`} key={cast.id} variant="outlined"
                         sx={{ borderRadius: 3, px: 2.5, py: 0.5, bgcolor: (theme) => cast.work ? theme.palette.status.work.bg : theme.palette.background.paper, boxShadow: '0 2px 1px #0004' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <Typography>{cast.name}</Typography>
                             <FormControlLabel label="出勤" labelPlacement="start" sx={{ mr: 0, '& .MuiFormControlLabel-label': { fontSize: 14 } }}
-                                control={<Switch color="secondary" checked={cast.work} disabled={saving || confirmed} onChange={(event) => update(cast.id, { work: event.target.checked })} inputProps={{ 'aria-label': `${cast.name}の出勤` }} />} />
+                                control={<Switch color="secondary" checked={cast.work} disabled={saving || readOnly} onChange={(event) => update(cast.id, { work: event.target.checked })} inputProps={{ 'aria-label': `${cast.name}の出勤` }} />} />
                         </Box>
                         {cast.work && <>
                             {/* 24:00はPicker上の00:00へ変換し、保存時に24:00へ戻す。 */}
@@ -89,7 +107,7 @@ export function ShiftAssignment() {
                                 {(['start', 'end'] as const).map((field, index) => <Box key={field} sx={{ display: 'contents' }}>
                                     {index === 1 && <Typography>-</Typography>}
                                     <DesktopTimePicker
-                                        disabled={saving || confirmed} ampm={false} format="HH:mm" timeSteps={{ minutes: 15 }} skipDisabled
+                                        disabled={saving || readOnly} ampm={false} format="HH:mm" timeSteps={{ minutes: 15 }} skipDisabled
                                         value={cast[field] ? dayjs(`${date}T${cast[field] === '24:00' ? '00:00' : cast[field]}`) : null}
                                         minTime={field === 'start' ? dayjs(date).startOf('day').hour(20) : undefined}
                                         maxTime={field === 'start' ? dayjs(date).startOf('day').hour(22) : undefined}
@@ -119,16 +137,22 @@ export function ShiftAssignment() {
                 </Box>
                 {/* 決定した日を確定済みにし、出勤人数と割り当てを確認画面へ反映する。 */}
                 <Box sx={{ position: 'sticky', bottom: 0, bgcolor: 'background.paper', pt: 2, pb: 'env(safe-area-inset-bottom)' }}>
-                    <Button fullWidth variant="contained" disabled={invalid || loading || saving || confirmed || !loaded} endIcon={<CheckCircleOutlineIcon />} onClick={async () => {
+                    <Button fullWidth variant="contained" disabled={invalid || loading || saving || readOnly || !loaded} endIcon={<CheckCircleOutlineIcon />} onClick={async () => {
                         if (submitting.current) return;
                         submitting.current = true;
                         setSaving(true);
                         setError('');
-                        try { await decideScheduleDay(requestId, date, casts); back(); }
+                        try {
+                            await decideScheduleDay(requestId, date, casts);
+                            if (confirmed) { setSavedCasts(casts); setEditing(false); }
+                            else back();
+                        }
                         catch (error) { setError(error instanceof Error ? error.message : '保存に失敗しました。'); }
                         finally { submitting.current = false; setSaving(false); }
-                    }} sx={{ borderRadius: 2, minHeight: 42 }}>決定</Button>
+                    }} sx={{ borderRadius: 2, minHeight: 42 }}>{confirmed ? '変更を保存' : '決定'}</Button>
+                    {confirmed && <Button fullWidth disabled={saving} onClick={() => { setCasts(savedCasts); setEditing(false); setError(''); }} sx={{ mt: 1 }}>キャンセル</Button>}
                 </Box>
+                </>}
             </>}
         </Container>
     </MobilePageLayout>;

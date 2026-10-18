@@ -7,7 +7,7 @@ import MobilePageLayout from '../../shared/layout/MobilePageLayout';
 import { useAuth } from '../../composables/useAuth';
 import { getMyConfirmedSchedule, type PublishedSchedule } from '../../api/shiftScheduleApi';
 
-/** 管理者が期間全体を確定した出勤日のみ表示する。 */
+/** 管理者が確定した出勤日を表示する。 */
 export function MyShifts() {
     const { user, loading: authLoading } = useAuth();
     const [periods, setPeriods] = useState<PublishedSchedule[]>([]);
@@ -27,7 +27,7 @@ export function MyShifts() {
     return <MobilePageLayout>
         <Header />
         <Container maxWidth="sm" sx={{ pt: 3, pb: 6 }}>
-            <Typography component="h1" fontSize={22} fontWeight={700} sx={{ mb: 2 }}>出勤日</Typography>
+            <Typography component="h1" fontSize={22} fontWeight={700} sx={{ mb: 2 }}>出勤確定日</Typography>
             {loading || authLoading ? <Typography role="status">読み込み中…</Typography>
                 : error ? <Alert severity="error">{error}</Alert>
                 : !user ? <Alert severity="error">ユーザー情報を取得できませんでした。</Alert>

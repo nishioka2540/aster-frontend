@@ -1,3 +1,4 @@
+import { SubmissionStatus } from '../../components/SubmissionStatus'
 import { Fragment, useEffect, useState } from "react"
 import type { } from "../../theme"
 import dayjs, { Dayjs } from "dayjs"
@@ -56,6 +57,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
     const navigate = useNavigate()
     const [castName, setCastName] = useState('')
     const [submitted, setSubmitted] = useState(false)
+    const [submissions, setSubmissions] = useState<Record<number, { status: number; submitted_at: string | null }>>({})
     const [editing, setEditing] = useState(false)
     const [savedShiftByDay, setSavedShiftByDay] = useState<ShiftState>({})
     const [requests, setRequests] = useState<AcceptingShiftRequest[]>([])
@@ -92,7 +94,8 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
             } else {
                 const [{ data }, saved] = await Promise.all([getAcceptingShiftRequests(), getMyShiftSubmissions()])
                 if (!active) return
-                setRequests(data)
+                setRequests(data.filter(request => !requestId || request.id === Number(requestId)))
+                setSubmissions(Object.fromEntries(saved.data.map(item => [item.shift_request_id, item])))
                 const initial: ShiftState = {}
                 for (const submission of saved.data) {
                     if (!data.some(request => request.id === submission.shift_request_id)) continue
@@ -123,7 +126,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
     const [shiftByDay, setShiftByDay] = useState<ShiftState>({})
 
     const handleSaveDraft = async () => {
-        if (admin || submitting) return
+        if (admin || submitting || requests.some(request => submissions[request.id]?.status === 2)) return
         setSubmitError(null)
         setSuccess(null)
         const payloads = []
@@ -133,7 +136,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
             const count = dayjs(request.period_end).diff(from, 'day') + 1
             for (let index = 0; index < count; index++) {
                 const date = from.add(index, 'day')
-                if (date.day() === 0 || date.day() === 6) continue
+                if (date.day() === 0 || date.day() === 6 || request.finalized_dates?.includes(date.format('YYYY-MM-DD'))) continue
                 const shift = shiftByDay[`${request.id}:${date.valueOf()}`]
                 if (!shift) continue
                 if ((shift.startTime && !shift.startTime.isValid()) || (shift.endTime && !shift.endTime.isValid())) {
@@ -148,13 +151,14 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
                     note: shift.work ? shift.note : '',
                 })
             }
-            payloads.push({ shift_request_id: request.id, days })
+            if (days.length) payloads.push({ shift_request_id: request.id, days })
         }
         setSubmitting(true)
         let completed = 0
         try {
             for (const payload of payloads) {
                 await saveShiftDraft(payload)
+                setSubmissions(current => ({ ...current, [payload.shift_request_id]: { status: 1, submitted_at: null } }))
                 completed++
             }
             setSuccess('下書きを保存しました。まだ提出はされていません。')
@@ -221,7 +225,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
             const days = []
             for (let index = 0; index < count; index++) {
                 const date = from.add(index, 'day')
-                if (date.day() === 0 || date.day() === 6) continue
+                if (date.day() === 0 || date.day() === 6 || request.finalized_dates?.includes(date.format('YYYY-MM-DD'))) continue
                 const shift = shiftByDay[`${request.id}:${date.valueOf()}`]
                 if (!shift) {
                     setSubmitError(`${date.format('M/D')}の出勤・休みを選択してください。`)
@@ -247,17 +251,23 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
                     note: shift.work ? shift.note : '',
                 })
             }
-            payloads.push({ shift_request_id: request.id, days })
+            if (days.length) payloads.push({ shift_request_id: request.id, days })
         }
         setSubmitting(true)
         let completed = 0
         try {
             for (const payload of payloads) {
                 if (admin) await saveCastShift(Number(requestId), castId ?? '', payload)
-                else await submitShift(payload)
+                else {
+                    await submitShift(payload)
+                    setSubmissions(current => ({ ...current, [payload.shift_request_id]: { status: 2, submitted_at: dayjs().format('YYYY-MM-DD HH:mm:ss') } }))
+                }
                 completed++
             }
             setSuccess(admin ? 'シフトを保存しました。' : 'シフトを登録しました。締切までは再提出できます。')
+            if (!admin) {
+                navigate('/my_shifts', { replace: true })
+            }
             if (admin) {
                 setSubmitted(true)
                 setSavedShiftByDay(shiftByDay)
@@ -281,6 +291,12 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
         <IconButton aria-label="提出状況に戻る" disabled={submitting} onClick={() => navigate(`/shift_status?period=${requestId}`)}><ArrowBackIcon /></IconButton>
         <Typography component="h1" variant="h6" noWrap sx={{ minWidth: 0, pr: 1 }}>{castName || 'キャストのシフト'}</Typography>
     </Box> : <Header />
+    const hasEditableDays = requests.some(request => {
+        const from = dayjs(request.period_start)
+        return Array.from({ length: dayjs(request.period_end).diff(from, 'day') + 1 }, (_, index) => from.add(index, 'day'))
+            .some(date => date.day() !== 0 && date.day() !== 6 && !request.finalized_dates?.includes(date.format('YYYY-MM-DD')))
+    })
+    const hasSubmitted = requests.some(request => submissions[request.id]?.status === 2)
     const canEdit = !admin || (!!requests[0] && dayjs(requests[0].submission_deadline).isAfter(dayjs()))
     const editable = canEdit && (!admin || editing)
 
@@ -302,6 +318,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
     return (
         <MobilePageLayout>
             {pageHeader}
+            {!hasEditableDays && <Alert severity="info">すべての日が確定済みです。確定シフトはMyShiftで確認できます。</Alert>}
             {admin && <Typography color="text.secondary">{submitted ? '提出済み' : '未提出'}</Typography>}
             {!canEdit && <Alert severity="info">締切を過ぎているため、提出内容の確認のみ可能です。</Alert>}
             {admin && canEdit && !editing && <Button variant="contained" sx={{ my: 2 }} onClick={() => {
@@ -321,7 +338,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
                     const from = dayjs(request.period_start)
                     const to = dayjs(request.period_end)
                     const dates = Array.from({ length: to.diff(from, 'day') + 1 }, (_, index) => from.add(index, 'day'))
-                        .filter(date => date.day() !== 0 && date.day() !== 6)
+                        .filter(date => date.day() !== 0 && date.day() !== 6 && !request.finalized_dates?.includes(date.format('YYYY-MM-DD')))
                     return <Fragment key={request.id}>
                         {/* スクロール中も申請対象期間と案内を表示する固定見出し */}
                         <Box sx={{
@@ -337,8 +354,13 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
                             </Typography>
 
                             <Typography>
-                                ※締切：{dayjs(request.submission_deadline).format('M月D日(ddd) HH:mm')}（締切日までは変更ができます。）
+                                ※締切：{dayjs(request.submission_deadline).format('M月D日(ddd) HH:mm')}
+                                <Typography component="span" variant="caption" display="block">（締切日までは変更できます。）</Typography>
                             </Typography>
+                            {!admin && <Box sx={{ mt: 1 }}>
+                                <SubmissionStatus status={submissions[request.id]?.status} />
+                            </Box>}
+                            {!!request.finalized_dates?.length && <Typography color="text.secondary">確定済みの日は入力対象から除外しています。</Typography>}
                             {request.notice && <Typography sx={{ whiteSpace: 'pre-wrap' }}>{request.notice}</Typography>}
                         </Box>
 
@@ -484,14 +506,14 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
                 display: 'flex', bgcolor: 'background.paper', borderTop: '1px solid', borderColor: 'divider',
                 pb: 'env(safe-area-inset-bottom)', boxShadow: '0 -2px 8px #0000000a',
             }}>
-                <Button disabled={submitting} onClick={handleSubmit} sx={{ flex: 1, minHeight: 72, borderRadius: 0, flexDirection: 'column', gap: 0.5 }}>
-                    <EventAvailableIcon /><Typography component="span" fontSize={12}>{submitting ? '提出中…' : '提出する'}</Typography>
+                <Button disabled={submitting || !hasEditableDays} onClick={handleSubmit} sx={{ flex: 1, minHeight: 72, borderRadius: 0, flexDirection: 'column', gap: 0.5 }}>
+                    <EventAvailableIcon /><Typography component="span" fontSize={12}>{submitting ? '提出中…' : hasSubmitted ? '変更して再提出' : '提出する'}</Typography>
                 </Button>
-                <Button disabled={submitting} onClick={handleSaveDraft} color="inherit" sx={{ flex: 1, minHeight: 72, borderRadius: 0, flexDirection: 'column', gap: 0.5 }}>
+                <Button disabled={submitting || !hasEditableDays || hasSubmitted} onClick={handleSaveDraft} color="inherit" sx={{ flex: 1, minHeight: 72, borderRadius: 0, flexDirection: 'column', gap: 0.5 }}>
                     <SaveOutlinedIcon /><Typography component="span" fontSize={12}>下書き保存</Typography>
                 </Button>
             </Box>}
-            {admin && editing && <Button disabled={submitting || !editable} variant="contained" color="primary"
+            {admin && editing && <Button disabled={submitting || !editable || !hasEditableDays} variant="contained" color="primary"
                 sx={
                     {
                         position: 'sticky',

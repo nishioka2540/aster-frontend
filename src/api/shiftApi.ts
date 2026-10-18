@@ -23,7 +23,7 @@ export interface ShiftSubmission {
 }
 
 export const getMyShiftSubmissions = () =>
-    apiClient<{ data: (ShiftSubmission & { status: number })[] }>('/api/shifts/mine');
+    apiClient<{ data: (ShiftSubmission & { status: number; submitted_at: string | null; request: AcceptingShiftRequest & { status: number } })[] }>('/api/shifts/mine');
 
 export const saveShiftDraft = (payload: ShiftSubmission) =>
     apiClient<{ id: number; message: string }>('/api/shifts/draft', {

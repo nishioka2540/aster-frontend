@@ -12,6 +12,7 @@ export default function App() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/submission/:requestId" element={<ProtectedRoute authType={0}><ShiftCreatePage /></ProtectedRoute>} />
                 <Route path="/my_shifts" element={<ProtectedRoute authType={0}><MyShifts /></ProtectedRoute>} />
                 <Route path="/shift_status/:requestId/casts/:castId" element={<ProtectedRoute authType={1}><ShiftCreatePage admin /></ProtectedRoute>} />
                 <Route path="/shift_assignment" element={<ProtectedRoute authType={1}><ShiftAssignment /></ProtectedRoute>} />
