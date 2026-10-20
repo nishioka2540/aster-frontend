@@ -52,7 +52,7 @@ export function LoginPage() {
         <MobilePageLayout>
             <Box sx={{ pt: "clamp(64px, 25dvh, 240px)", pb: 4 }}>
                 <Typography variant="h4" fontWeight={600} align="center" gutterBottom>
-                    Aster
+                    aster.
                 </Typography>
 
                 {/* アイコン */}
@@ -60,7 +60,7 @@ export function LoginPage() {
                     <AccountCircleIcon sx={{ fontSize: 64 }} />
                 </Box>
 
-                
+
 
                 {error && <Alert severity="error" sx={{ mt: 2 }}>{errors[error] ?? errors.failed}</Alert>}
                 <Box component="form" onSubmit={handleLogin} sx={{ mt: 3, mx: 'auto', width: '100%', maxWidth: 360 }}>

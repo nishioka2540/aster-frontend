@@ -59,7 +59,7 @@ export function ShiftStatus() {
                 {successMessage && <Alert severity="success" onClose={() => setSuccessMessage(null)} sx={{ mb: 2 }}>{successMessage}</Alert>}
                 {loading && <Typography role="status">読み込み中…</Typography>}
                 {error && <Alert severity="error">{error}</Alert>}
-                {!loading && !error && !period && <Alert severity="info">受付中のシフト依頼はありません。</Alert>}
+                {!loading && !error && !period && <Alert severity="info">未確定のシフト依頼はありません。</Alert>}
                 {period && <>
                     {/* 複数の依頼が受付中の場合だけ対象期間を切り替えられる。 */}
                     {periods.length > 1 ? (
@@ -80,7 +80,7 @@ export function ShiftStatus() {
                                 aria-label="シフト提出率"
                                 sx={{ height: 16, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', '& .MuiLinearProgress-bar': { bgcolor: '#4054f5' } }} />
                         </Box>
-                        <Button variant="outlined" disabled={reminding || !period.unsubmitted.length} endIcon={<NotificationsNoneIcon />}
+                        <Button variant="outlined" disabled={reminding || !period.reminder_available || !period.unsubmitted.length} endIcon={<NotificationsNoneIcon />}
                             onClick={async () => {
                                 if (reminderLock.current) return;
                                 reminderLock.current = true;
@@ -92,6 +92,7 @@ export function ShiftStatus() {
                                 finally { reminderLock.current = false; setReminding(false); }
                             }} sx={{ borderRadius: 5, whiteSpace: 'nowrap', px: 2 }}>{reminding ? '受付中…' : '未提出者に通知'}</Button>
                     </Box>
+                    {!period.reminder_available && <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>未提出者への通知は提出期限の翌日から利用できます。</Typography>}
                     {/* APIが返した未提出・提出済み一覧を同じレイアウトで描画する。 */}
                     {([
                         ['未提出', period.unsubmitted],

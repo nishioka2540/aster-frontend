@@ -9,6 +9,8 @@ export interface ShiftStatusPeriod {
     id: number;
     period_start: string;
     period_end: string;
+    submission_deadline: string;
+    reminder_available: boolean;
     submitted: ShiftStatusUser[];
     unsubmitted: ShiftStatusUser[];
 }

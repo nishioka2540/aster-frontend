@@ -10,6 +10,10 @@
     "dependencies": {
         "@emotion/react": "^11.14.0",
         "@emotion/styled": "^11.14.1",
+        "@fullcalendar/core": "6.1.22",
+        "@fullcalendar/daygrid": "6.1.22",
+        "@fullcalendar/interaction": "6.1.22",
+        "@fullcalendar/react": "6.1.22",
         "@mui/icons-material": "^7.3.4",
         "@mui/material": "^7.3.4",
         "@mui/x-date-pickers": "^7.29.4",
@@ -23,7 +27,6 @@
         "@types/react-dom": "^19.2.2",
         "@vitejs/plugin-react": "^4.2.0",
         "typescript": "^5.9.3",
-        "vite": "^5.0.0",
-        "vite-plugin-pwa": "^0.21.2"
+        "vite": "^5.0.0"
     }
 }

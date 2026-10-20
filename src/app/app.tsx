@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { lazy, Suspense } from 'react';
 import { ShiftCreatePage } from '../pages/cast/ShiftCreatePage';
 import { LoginPage } from '../pages/LoginPage';
 import { RequestShift } from "../pages/admin/RequestShift";
@@ -7,16 +8,19 @@ import { ShiftStatus } from "../pages/admin/ShiftStatus";
 import { ShiftReview } from "../pages/admin/ShiftReview";
 import { ShiftAssignment } from "../pages/admin/ShiftAssignment";
 import { MyShifts } from "../pages/cast/MyShifts";
+const ConfirmedShiftCalendar = lazy(() => import('../pages/ConfirmedShiftCalendar').then(module => ({ default: module.ConfirmedShiftCalendar })));
 
 export default function App() {
     return (
         <BrowserRouter>
             <Routes>
-                <Route path="/submission/:requestId" element={<ProtectedRoute authType={0}><ShiftCreatePage /></ProtectedRoute>} />
-                <Route path="/my_shifts" element={<ProtectedRoute authType={0}><MyShifts /></ProtectedRoute>} />
-                <Route path="/shift_status/:requestId/casts/:castId" element={<ProtectedRoute authType={1}><ShiftCreatePage admin /></ProtectedRoute>} />
-                <Route path="/shift_assignment" element={<ProtectedRoute authType={1}><ShiftAssignment /></ProtectedRoute>} />
-                <Route path="/shift_review" element={<ProtectedRoute authType={1}><ShiftReview /></ProtectedRoute>} />
+                <Route path="/confirmed_shifts" element={<ProtectedRoute access="confirmed"><Suspense fallback={<p>カレンダーを読み込み中…</p>}><ConfirmedShiftCalendar /></Suspense></ProtectedRoute>} />
+                <Route path="/access_denied" element={<ProtectedRoute><p role="alert">現在の役職では利用できる画面がありません。管理者にお問い合わせください。</p></ProtectedRoute>} />
+                <Route path="/submission/:requestId" element={<ProtectedRoute access="register"><ShiftCreatePage /></ProtectedRoute>} />
+                <Route path="/my_shifts" element={<ProtectedRoute access="register"><MyShifts /></ProtectedRoute>} />
+                <Route path="/shift_status/:requestId/casts/:castId" element={<ProtectedRoute access="manage"><ShiftCreatePage admin /></ProtectedRoute>} />
+                <Route path="/shift_assignment" element={<ProtectedRoute access="manage"><ShiftAssignment /></ProtectedRoute>} />
+                <Route path="/shift_review" element={<ProtectedRoute access="manage"><ShiftReview /></ProtectedRoute>} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route
                     path="/"
@@ -24,19 +28,19 @@ export default function App() {
                 />
                 <Route
                     path="/request_shift"
-                    element={<ProtectedRoute authType={1}><RequestShift /></ProtectedRoute>}
+                    element={<ProtectedRoute access="manage"><RequestShift /></ProtectedRoute>}
                 />
 
                 <Route
-                    // シフト送信
+                    // Shift submission
                     path="/shift_status"
-                    element={<ProtectedRoute authType={1}><ShiftStatus /></ProtectedRoute>}
+                    element={<ProtectedRoute access="manage"><ShiftStatus /></ProtectedRoute>}
                 />
 
                 <Route
-                    // シフト送信
+                    // Shift submission
                     path="/submission"
-                    element={<ProtectedRoute authType={0}><ShiftCreatePage /></ProtectedRoute>}
+                    element={<ProtectedRoute access="register"><ShiftCreatePage /></ProtectedRoute>}
                 />
 
             </Routes>

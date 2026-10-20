@@ -297,7 +297,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
             .some(date => date.day() !== 0 && date.day() !== 6 && !request.finalized_dates?.includes(date.format('YYYY-MM-DD')))
     })
     const hasSubmitted = requests.some(request => submissions[request.id]?.status === 2)
-    const canEdit = !admin || (!!requests[0] && dayjs(requests[0].submission_deadline).isAfter(dayjs()))
+    const canEdit = !admin || (!!requests[0] && (!submitted || !dayjs(requests[0].submission_deadline).isBefore(dayjs(), 'day')))
     const editable = canEdit && (!admin || editing)
 
     if (loading || error || requests.length === 0) {
@@ -320,7 +320,8 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
             {pageHeader}
             {!hasEditableDays && <Alert severity="info">すべての日が確定済みです。確定シフトはMyShiftで確認できます。</Alert>}
             {admin && <Typography color="text.secondary">{submitted ? '提出済み' : '未提出'}</Typography>}
-            {!canEdit && <Alert severity="info">締切を過ぎているため、提出内容の確認のみ可能です。</Alert>}
+            {/* 期限後の代理登録直後は保存完了を案内し、確認のみの案内は表示しない。 */}
+            {!canEdit && !success && <Alert severity="info">締切を過ぎているため、提出内容の確認のみ可能です。</Alert>}
             {admin && canEdit && !editing && <Button variant="contained" sx={{ my: 2 }} onClick={() => {
                 setSuccess(null)
                 setSubmitError(null)
@@ -355,7 +356,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
 
                             <Typography>
                                 ※締切：{dayjs(request.submission_deadline).format('M月D日(ddd) HH:mm')}
-                                <Typography component="span" variant="caption" display="block">（締切日までは変更できます。）</Typography>
+                                <Typography component="span" variant="caption" display="block">（締切日までは変更できます。未提出の場合は締切後も提出できます。）</Typography>
                             </Typography>
                             {!admin && <Box sx={{ mt: 1 }}>
                                 <SubmissionStatus status={submissions[request.id]?.status} />

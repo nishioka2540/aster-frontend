@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { Alert, AppBar, Box, Button, Drawer, IconButton, List, ListItemButton, ListItemText, Toolbar, Typography } from '@mui/material';
+import { Alert, AppBar, Box, Button, Collapse, Drawer, IconButton, List, ListItemButton, ListItemText, Toolbar } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { logout } from '../api/loginApi';
+import { useAuth } from '../composables/useAuth';
+import { canManageShifts, canRegisterShifts, canViewConfirmedShifts } from '../api/authApi';
 
-// 管理者共通のハンバーガーメニュー。各画面の管理者向けルートへ遷移する。
+// メニューは画面の種類ではなく、ログインユーザーの権限に合わせて表示する。
 const adminLinks = [
     { to: '/request_shift', label: 'シフト提出依頼' },
     { to: '/shift_status', label: 'シフト提出状況' },
@@ -17,14 +21,21 @@ const castLinks = [
 ];
 
 type HeaderProps = {
-    /** 管理者画面では左側のナビゲーションメニューを有効にする。 */
+    /** 既存画面との互換用。メニューの表示内容はログイン権限で判定する。 */
     admin?: boolean;
 };
 
-export function Header({ admin = false }: HeaderProps) {
+export function Header(_props: HeaderProps) {
+    const { user } = useAuth();
+    const links = user ? [
+        ...(canManageShifts(user) ? adminLinks : []),
+        ...(user.user_type === 2 && canRegisterShifts(user) ? castLinks : []),
+        ...(canViewConfirmedShifts(user) ? [{ to: '/confirmed_shifts', label: '出勤カレンダー' }] : []),
+    ] : [];
     const navigate = useNavigate();
     const location = useLocation();
     const [menuOpen, setMenuOpen] = useState(false);
+    const [shiftMenuOpen, setShiftMenuOpen] = useState(true);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [error, setError] = useState('');
 
@@ -66,18 +77,27 @@ export function Header({ admin = false }: HeaderProps) {
             {error && <Alert severity="error">{error}</Alert>}
             {/* 管理者用の画面遷移。リンク選択・背景クリック・Escapeで閉じる。 */}
             <Drawer anchor="left" open={menuOpen} onClose={() => setMenuOpen(false)}>
-                <Box component="nav" id="navigation" aria-label={admin ? '管理者メニュー' : 'キャストメニュー'}
+                <Box component="nav" id="navigation" aria-label="メニュー"
                     sx={{ width: 280, pt: 'env(safe-area-inset-top)' }}>
-                    <Typography fontWeight={600} sx={{ p: 2 }}>{admin ? '管理者メニュー' : 'キャストメニュー'}</Typography>
                     <List>
-                        {(admin ? adminLinks : castLinks).map(({ to, label }) => (
-                            <ListItemButton key={to} component={Link} to={to}
-                                selected={location.pathname === to}
-                                aria-current={location.pathname === to ? 'page' : undefined}
-                                onClick={() => setMenuOpen(false)}>
-                                <ListItemText primary={label} />
-                            </ListItemButton>
-                        ))}
+                        <ListItemButton onClick={() => setShiftMenuOpen(open => !open)}
+                            aria-expanded={shiftMenuOpen} aria-controls="shift-navigation">
+                            <ListItemText primary="シフト管理" primaryTypographyProps={{ fontWeight: 600 }} />
+                            {shiftMenuOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        </ListItemButton>
+                        <Collapse in={shiftMenuOpen} timeout="auto" unmountOnExit>
+                            <List id="shift-navigation" component="div" disablePadding>
+                                {links.map(({ to, label }) => (
+                                    <ListItemButton key={to} component={Link} to={to}
+                                        sx={{ pl: 4 }}
+                                        selected={location.pathname === to}
+                                        aria-current={location.pathname === to ? 'page' : undefined}
+                                        onClick={() => setMenuOpen(false)}>
+                                        <ListItemText primary={label} />
+                                    </ListItemButton>
+                                ))}
+                            </List>
+                        </Collapse>
                     </List>
                 </Box>
             </Drawer>
