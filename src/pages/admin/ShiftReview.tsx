@@ -141,7 +141,7 @@ export function ShiftReview() {
                                 '&.Mui-focusVisible': { outline: '2px solid', outlineColor: 'primary.main' }
                             }}>
                             <Typography fontSize={12} color="text.secondary" whiteSpace="nowrap">{label(date)}</Typography>
-                            <Chip size="small" label={reviews[date]?.finalized ? '確定済' : confirmed ? '決定済' : '未決定'}
+                            <Chip size="small" label={reviews[date]?.finalized ? '確定済' : confirmed ? '調整済み' : '未調整'}
                                 variant={confirmed && !reviews[date]?.finalized ? 'outlined' : 'filled'}
                                 sx={{
                                     bgcolor: reviews[date]?.finalized ? '#2E7D32' : confirmed ? 'transparent' : '#ED6C02',
@@ -166,7 +166,7 @@ export function ShiftReview() {
                     <FormControlLabel sx={{ mx: 0, '& .MuiFormControlLabel-label': { fontSize: 14 } }}
                         control={<Checkbox size="small" checked={notifyLine} onChange={(_, checked) => setNotifyLine(checked)} disabled={saving} sx={{ p: 0, mr: 1, my: 1 }} />}
                         label="確定後にキャストにLINE通知をする" />
-                    <Typography fontSize={14}>※選択範囲のすべての日付を決定すると確定できます</Typography>
+                    <Typography fontSize={14}>※選択範囲のすべての日付が調整済みになると確定できます</Typography>
                     {currentRequest && <Alert severity="info" sx={{ mt: 1 }}>
                         提出期限内は確定ができません
                     </Alert>}

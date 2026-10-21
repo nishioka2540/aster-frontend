@@ -5,7 +5,7 @@ export type ScheduleReview = { confirmed: boolean; confirmation_available: boole
 const base = (id: number) => `/api/admin/shift-requests/${id}/schedule`;
 export const getScheduleReview = (id: number) => apiClient<ScheduleReview>(base(id));
 export const getScheduleAssignments = (id: number, date: string) =>
-    apiClient<{ confirmed: boolean; casts: CastAssignment[] }>(`${base(id)}/days/${date}`);
+    apiClient<{ confirmed: boolean; casts: CastAssignment[]; candidates: { id: string; name: string }[] }>(`${base(id)}/days/${date}`);
 export const decideScheduleDay = (id: number, date: string, casts: CastAssignment[]) =>
     apiClient<{ message: string }>(`${base(id)}/days/${date}`, { method: 'PUT', body: JSON.stringify({ casts }) });
 export const confirmSchedule = (id: number, from: string, to: string, notifyLine = false) => apiClient<{ message: string }>(`${base(id)}/confirm`, { method: 'POST', body: JSON.stringify({ from, to, notify_line: notifyLine }) });

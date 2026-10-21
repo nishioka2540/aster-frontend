@@ -4,10 +4,14 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import jaLocale from '@fullcalendar/core/locales/ja';
 import type { DatesSetArg, EventInput } from '@fullcalendar/core';
-import { Alert, Box, Button, Chip, Container, IconButton, LinearProgress, Paper, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, Container, IconButton, LinearProgress, Paper, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { jaJP } from '@mui/x-date-pickers/locales';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import dayjs from 'dayjs';
+import 'dayjs/locale/ja';
 import { Header } from '../components/Header';
 import MobilePageLayout from '../shared/layout/MobilePageLayout';
 import { getConfirmedCalendar, type ConfirmedCalendarDay } from '../api/shiftScheduleApi';
@@ -98,14 +102,16 @@ export function ConfirmedShiftCalendar() {
                         <Typography component="h2" fontSize={{ xs: 16, sm: 20 }} fontWeight={600} textAlign="center" aria-live="polite">{title}</Typography>
                         <IconButton aria-label="次の期間" onClick={() => calendar.current?.getApi().next()}><ChevronRightIcon /></IconButton>
                     </Stack>
-                    <TextField type="date" label="日付を選択" size="small" value={selectedDate}
-                        slotProps={{ inputLabel: { shrink: true } }} sx={{ mt: 1, width: { xs: '100%', sm: 220 } }}
-                        onChange={event => {
-                            const date = event.target.value;
-                            if (/^\d{4}-\d{2}-\d{2}$/.test(date) && dayjs(date).isValid()) {
-                                openDay(nearestWeekday(new Date(`${date}T12:00:00+09:00`)));
-                            }
-                        }} />
+                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ja"
+                        localeText={jaJP.components.MuiLocalizationProvider.defaultProps.localeText}>
+                        <DatePicker label="日付を選択" value={dayjs(selectedDate)} format="YYYY年MM月DD日"
+                            slotProps={{ textField: { size: 'small' } }} sx={{ mt: 1, width: { xs: '100%', sm: 260 } }}
+                            onChange={value => {
+                                if (value?.isValid()) {
+                                    openDay(nearestWeekday(new Date(`${value.format('YYYY-MM-DD')}T12:00:00+09:00`)));
+                                }
+                            }} />
+                    </LocalizationProvider>
                 </Box>
                 <Box sx={{ height: 4 }}>{loading && <LinearProgress aria-label="シフトを読み込み中" />}</Box>
                 {error && <Alert severity="error" action={<Button color="inherit" onClick={() => setRetry(value => value + 1)}>再読み込み</Button>}>{error}</Alert>}

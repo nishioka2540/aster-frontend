@@ -153,7 +153,7 @@ export function RequestShift() {
                     <Typography color="text.secondary" fontSize={13} sx={{ mt: 1 }}>
                         通知の受信には公式アカウントの友だち追加が必要です。
                     </Typography>
-                    {editing && <Typography color="error" fontSize={13} sx={{ mt: 1 }}>期間を変更すると提出済みシフトは下書きに戻り、編成済みシフトも再決定が必要になります。入力済みの希望シフトは保持されます。</Typography>}
+                    {editing && <Typography color="error" fontSize={13} sx={{ mt: 1 }}>期間を変更すると提出済みシフトは下書きに戻り、編成済みシフトも再調整が必要になります。入力済みの希望シフトは保持されます。</Typography>}
                     {!editing ? <Button type="button" variant="outlined" disabled={loading || sending}
                         onClick={() => { setResult(null); setEditing(true); }} sx={{ mt: 2 }}>
                         依頼内容を修正する

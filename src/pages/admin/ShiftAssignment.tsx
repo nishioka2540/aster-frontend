@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ja';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Alert, Box, Button, Chip, Container, FormControlLabel, IconButton, Paper, Switch, List, ListItem, ListItemText, Typography } from '@mui/material';
+import { Alert, Box, Button, Checkbox, Chip, Container, Dialog, FormControlLabel, IconButton, Paper, Switch, List, ListItem, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import { DesktopTimePicker } from '@mui/x-date-pickers/DesktopTimePicker';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -35,6 +36,17 @@ export function ShiftAssignment() {
     const [confirmed, setConfirmed] = useState(false);
     const [editing, setEditing] = useState(false);
     const [savedCasts, setSavedCasts] = useState<CastAssignment[]>([]);
+    const [candidates, setCandidates] = useState<{ id: string; name: string }[]>([]);
+    const [adding, setAdding] = useState(false);
+    const [search, setSearch] = useState('');
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const available = candidates.filter(candidate => !casts.some(cast => cast.id === candidate.id));
+    const normalize = (value: string) => value.normalize('NFKC').toLocaleLowerCase('ja').replace(/\s/g, '');
+    const matches = available.filter(candidate => normalize(candidate.name).includes(normalize(search)));
+    const footerSx = { position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1200,
+        bgcolor: 'background.paper', borderTop: '1px solid', borderColor: 'divider',
+        px: 2, pt: 1.5, pb: 'calc(12px + env(safe-area-inset-bottom))', display: 'flex', gap: 1 } as const;
+    const openAdd = () => { setSearch(''); setSelectedIds([]); setAdding(true); };
     const readOnly = confirmed && !editing;
     useEffect(() => {
         let active = true;
@@ -46,7 +58,7 @@ export function ShiftAssignment() {
         setEditing(false);
         if (!validRequest || !validDate) { setLoading(false); return; }
         getScheduleAssignments(requestId, date).then((data) => {
-            if (active) { setLoaded(true); setCasts(data.casts); setSavedCasts(data.casts); setConfirmed(data.confirmed); }
+            if (active) { setLoaded(true); setCasts(data.casts); setSavedCasts(data.casts); setConfirmed(data.confirmed); setCandidates(data.candidates); }
         }).catch((error) => { if (active) setError(error.message); })
           .finally(() => { if (active) setLoading(false); });
         return () => { active = false; };
@@ -70,7 +82,7 @@ export function ShiftAssignment() {
     const back = () => navigate(`/shift_review?${reviewParams}`, { replace: true });
 
     return <MobilePageLayout>
-        <Container maxWidth="sm" sx={{ pt: 'max(12px, env(safe-area-inset-top))', pb: 2 }}>
+        <Container maxWidth="sm" sx={{ pt: 'max(12px, env(safe-area-inset-top))', pb: 'calc(100px + env(safe-area-inset-bottom))' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <IconButton aria-label="シフト確認に戻る" onClick={back}><ArrowBackIosNewIcon /></IconButton>
                 <Typography component="h1" fontSize={20} fontWeight={600}>{validDate ? dayjs(date).locale('ja').format('M月D日(ddd)') : 'シフト割り当て'}</Typography>
@@ -91,7 +103,10 @@ export function ShiftAssignment() {
                         </ListItem>)}
                     </List>
                     {!casts.some((cast) => cast.work) && <Typography sx={{ my: 2 }}>出勤するキャストはいません。</Typography>}
-                    <Button fullWidth variant="outlined" disabled={loading || !loaded} onClick={() => setEditing(true)} sx={{ mt: 2 }}>編集する</Button>
+                    <Box component="footer" aria-label="確定シフトの操作" sx={footerSx}>
+                        <Button fullWidth variant="outlined" startIcon={<AddIcon />} disabled={loading || !loaded || !available.length} onClick={openAdd}>キャストを追加</Button>
+                        <Button fullWidth variant="contained" disabled={loading || !loaded} onClick={() => setEditing(true)}>編集する</Button>
+                    </Box>
                 </> : <>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {casts.map((cast) => <Paper component="section" aria-label={`${cast.name}の割り当て`} key={cast.id} variant="outlined"
@@ -135,8 +150,10 @@ export function ShiftAssignment() {
                         </>}
                     </Paper>)}
                 </Box>
-                {/* 決定した日を確定済みにし、出勤人数と割り当てを確認画面へ反映する。 */}
-                <Box sx={{ position: 'sticky', bottom: 0, bgcolor: 'background.paper', pt: 2, pb: 'env(safe-area-inset-bottom)' }}>
+                {/* 調整内容を保存し、出勤人数と割り当てを確認画面へ反映する。 */}
+                {confirmed && <Button startIcon={<AddIcon />} disabled={saving || !available.length} onClick={openAdd} sx={{ mt: 2 }}>キャストを追加</Button>}
+                <Box component="footer" aria-label="シフトの保存操作" sx={footerSx}>
+                    {confirmed && <Button fullWidth disabled={saving} onClick={() => { setCasts(savedCasts); setEditing(false); setError(''); }}>キャンセル</Button>}
                     <Button fullWidth variant="contained" disabled={invalid || loading || saving || readOnly || !loaded} endIcon={<CheckCircleOutlineIcon />} onClick={async () => {
                         if (submitting.current) return;
                         submitting.current = true;
@@ -149,11 +166,39 @@ export function ShiftAssignment() {
                         }
                         catch (error) { setError(error instanceof Error ? error.message : '保存に失敗しました。'); }
                         finally { submitting.current = false; setSaving(false); }
-                    }} sx={{ borderRadius: 2, minHeight: 42 }}>{confirmed ? '変更を保存' : '決定'}</Button>
-                    {confirmed && <Button fullWidth disabled={saving} onClick={() => { setCasts(savedCasts); setEditing(false); setError(''); }} sx={{ mt: 1 }}>キャンセル</Button>}
+                    }} sx={{ borderRadius: 2, minHeight: 42 }}>{confirmed ? '変更を保存' : '調整内容を保存'}</Button>
                 </Box>
                 </>}
             </>}
         </Container>
+        <Dialog fullScreen open={adding} onClose={() => setAdding(false)} aria-labelledby="add-cast-title">
+            <Container maxWidth="sm" sx={{ pt: 'max(12px, env(safe-area-inset-top))', pb: 'calc(100px + env(safe-area-inset-bottom))' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                    <IconButton aria-label="シフト編集に戻る" onClick={() => setAdding(false)}><ArrowBackIosNewIcon /></IconButton>
+                    <Typography id="add-cast-title" component="h2" variant="h6">キャストを追加</Typography>
+                </Box>
+                <Typography color="text.secondary" sx={{ mb: 2 }}>追加するキャストを選択してください。出退勤時間は次の画面で確認できます。</Typography>
+                <TextField fullWidth label="キャスト名で検索" value={search} onChange={event => setSearch(event.target.value)} />
+                <List aria-label="追加できるキャスト">
+                    {matches.map(candidate => <ListItem key={candidate.id} disablePadding divider>
+                        <ListItemButton onClick={() => setSelectedIds(current => current.includes(candidate.id) ? current.filter(id => id !== candidate.id) : [...current, candidate.id])}>
+                            <Checkbox checked={selectedIds.includes(candidate.id)} tabIndex={-1} disableRipple inputProps={{ 'aria-label': candidate.name }} />
+                            <ListItemText primary={candidate.name} />
+                        </ListItemButton>
+                    </ListItem>)}
+                </List>
+                {!matches.length && <Typography color="text.secondary">該当するキャストはいません。</Typography>}
+            </Container>
+            <Box sx={footerSx}>
+                <Button fullWidth onClick={() => setAdding(false)}>キャンセル</Button>
+                <Button fullWidth variant="contained" disabled={!selectedIds.length} onClick={() => {
+                    setCasts(current => [...current, ...available.filter(candidate => selectedIds.includes(candidate.id)).map(candidate => ({
+                        ...candidate, work: true, start: '20:00', end: '24:00', reserved: false, note: '',
+                    }))]);
+                    setEditing(true);
+                    setAdding(false);
+                }}>選択して追加（{selectedIds.length}人）</Button>
+            </Box>
+        </Dialog>
     </MobilePageLayout>;
 }

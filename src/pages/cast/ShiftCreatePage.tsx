@@ -269,9 +269,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
                 navigate('/my_shifts', { replace: true })
             }
             if (admin) {
-                setSubmitted(true)
-                setSavedShiftByDay(shiftByDay)
-                setEditing(false)
+                navigate(`/shift_status?period=${requestId}`, { replace: true })
             }
         } catch (error) {
             setSubmitError(`${completed ? `${completed}件は登録済みです。再提出できます。` : ''}${error instanceof Error ? error.message : '登録に失敗しました。'}`)
@@ -297,8 +295,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
             .some(date => date.day() !== 0 && date.day() !== 6 && !request.finalized_dates?.includes(date.format('YYYY-MM-DD')))
     })
     const hasSubmitted = requests.some(request => submissions[request.id]?.status === 2)
-    const canEdit = !admin || (!!requests[0] && (!submitted || !dayjs(requests[0].submission_deadline).isBefore(dayjs(), 'day')))
-    const editable = canEdit && (!admin || editing)
+    const editable = !admin || editing
 
     if (loading || error || requests.length === 0) {
         return <MobilePageLayout>{pageHeader}<Typography role={error ? 'alert' : 'status'}>
@@ -308,11 +305,11 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
     if (admin && !submitted && !editing) {
         return <MobilePageLayout>{pageHeader}
             <Alert severity="info">このキャストのシフトはまだ提出されていません。</Alert>
-            {canEdit ? <Button variant="contained" sx={{ my: 2 }} onClick={() => {
+            <Button variant="contained" sx={{ my: 2 }} onClick={() => {
                 setSuccess(null)
                 setSubmitError(null)
                 setEditing(true)
-            }}>キャストの出勤情報を入力する</Button> : <Alert severity="info">締切を過ぎているため、代理入力できません。</Alert>}
+            }}>キャストの出勤情報を入力する</Button>
         </MobilePageLayout>
     }
     return (
@@ -320,9 +317,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
             {pageHeader}
             {!hasEditableDays && <Alert severity="info">すべての日が確定済みです。確定シフトはMyShiftで確認できます。</Alert>}
             {admin && <Typography color="text.secondary">{submitted ? '提出済み' : '未提出'}</Typography>}
-            {/* 期限後の代理登録直後は保存完了を案内し、確認のみの案内は表示しない。 */}
-            {!canEdit && !success && <Alert severity="info">締切を過ぎているため、提出内容の確認のみ可能です。</Alert>}
-            {admin && canEdit && !editing && <Button variant="contained" sx={{ my: 2 }} onClick={() => {
+            {admin && !editing && <Button variant="contained" sx={{ my: 2 }} onClick={() => {
                 setSuccess(null)
                 setSubmitError(null)
                 setEditing(true)
@@ -356,7 +351,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
 
                             <Typography>
                                 ※締切：{dayjs(request.submission_deadline).format('M月D日(ddd) HH:mm')}
-                                <Typography component="span" variant="caption" display="block">（締切日までは変更できます。未提出の場合は締切後も提出できます。）</Typography>
+                                <Typography component="span" variant="caption" display="block">{admin ? '（管理者は締切後も変更できます。）' : '（締切日までは変更できます。未提出の場合は締切後も提出できます。）'}</Typography>
                             </Typography>
                             {!admin && <Box sx={{ mt: 1 }}>
                                 <SubmissionStatus status={submissions[request.id]?.status} />

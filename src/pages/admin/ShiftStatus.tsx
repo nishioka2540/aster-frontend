@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Alert, Box, Button, Container, LinearProgress, List, ListItem, MenuItem, TextField, Typography } from '@mui/material';
+import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Container, LinearProgress, List, ListItem, MenuItem, TextField, Typography } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { remindUnsubmitted } from '../../api/shiftRequestApi';
 import { useRef } from 'react';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
@@ -98,10 +99,16 @@ export function ShiftStatus() {
                         ['未提出', period.unsubmitted],
                         ['提出済み', period.submitted],
                     ] as const).map(([label, users], index) => (
-                        <Box component="section" key={label} sx={{ mt: index ? 6 : 0 }}>
-                            <Typography component="h2" fontSize={18} fontWeight={600} color="text.secondary">
-                                {label}({users.length})
-                            </Typography>
+                        <Accordion key={label} defaultExpanded disableGutters elevation={0}
+                            slotProps={{ heading: { component: 'h2' } }}
+                            sx={{ mt: index ? 3 : 0, '&::before': { display: 'none' } }}>
+                            <AccordionSummary expandIcon={<ExpandMoreIcon />}
+                                id={`shift-status-${index}-header`} aria-controls={`shift-status-${index}-content`}>
+                                <Typography component="span" fontSize={18} fontWeight={600} color="text.secondary">
+                                    {label}({users.length})
+                                </Typography>
+                            </AccordionSummary>
+                            <AccordionDetails sx={{ pt: 0 }}>
                             {users.length ? <List disablePadding aria-label={label}>
                                 {users.map((user) => <ListItem key={user.id} divider disablePadding>
                                     <ListItemButton component={Link} to={`/shift_status/${period.id}/casts/${user.id}`} sx={{ minHeight: 56, px: 1 }}>
@@ -109,7 +116,8 @@ export function ShiftStatus() {
                                     </ListItemButton>
                                 </ListItem>)}
                             </List> : <Typography color="text.secondary" sx={{ py: 2, px: 1 }}>該当するキャストはいません。</Typography>}
-                        </Box>
+                            </AccordionDetails>
+                        </Accordion>
                     ))}
                 </>}
             </Container>
