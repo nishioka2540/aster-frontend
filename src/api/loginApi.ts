@@ -7,7 +7,7 @@ export const logout = async () => {
 /**
  * ログイン認証するAPI呼び出し
  */
-export const login = async (condition: { email: string; password: string }) => {
+export const login = async (condition: { login_id: string; password: string }) => {
 
 
     /** @var {string} endpoint エンドポイント */

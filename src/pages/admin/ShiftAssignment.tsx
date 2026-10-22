@@ -79,12 +79,13 @@ export function ShiftAssignment() {
         if (value) reviewParams.set(key, value);
     }
     if (validDate) reviewParams.set('selected', date);
-    const back = () => navigate(`/shift_review?${reviewParams}`, { replace: true });
+    const fromCalendar = params.get('source') === 'confirmed';
+    const back = () => navigate(fromCalendar ? `/confirmed_shifts?${new URLSearchParams({ date })}` : `/shift_review?${reviewParams}`, { replace: true });
 
     return <MobilePageLayout>
         <Container maxWidth="sm" sx={{ pt: 'max(12px, env(safe-area-inset-top))', pb: 'calc(100px + env(safe-area-inset-bottom))' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <IconButton aria-label="シフト確認に戻る" onClick={back}><ArrowBackIosNewIcon /></IconButton>
+                <IconButton aria-label={fromCalendar ? '出勤カレンダーに戻る' : 'シフト確認に戻る'} onClick={back}><ArrowBackIosNewIcon /></IconButton>
                 <Typography component="h1" fontSize={20} fontWeight={600}>{validDate ? dayjs(date).locale('ja').format('M月D日(ddd)') : 'シフト割り当て'}</Typography>
             </Box>
             {error && <Alert severity="error">{error}</Alert>}
@@ -161,7 +162,8 @@ export function ShiftAssignment() {
                         setError('');
                         try {
                             await decideScheduleDay(requestId, date, casts);
-                            if (confirmed) { setSavedCasts(casts); setEditing(false); }
+                            if (fromCalendar) back();
+                            else if (confirmed) { setSavedCasts(casts); setEditing(false); }
                             else back();
                         }
                         catch (error) { setError(error instanceof Error ? error.message : '保存に失敗しました。'); }

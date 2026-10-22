@@ -14,6 +14,7 @@ export type PublishedSchedule = { from: string; to: string; shifts: { date: stri
 export const getMyConfirmedSchedule = () => apiClient<{ data: PublishedSchedule[] }>('/api/shifts/confirmed');
 
 export type ConfirmedCalendarDay = {
+    request_ids?: number[];
     date: string;
     confirmed: boolean;
     count: number;

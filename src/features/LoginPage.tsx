@@ -15,7 +15,7 @@ import { login } from "../api/loginApi";
 
 export function LoginPage() {
     // APIの入力型を参照し、移動前の型ファイルに依存しない。
-    const [form, setForm] = useState<Parameters<typeof login>[0]>({ email: '', password: '' });
+    const [form, setForm] = useState<Parameters<typeof login>[0]>({ login_id: '', password: '' });
 
     /** @var {event} ポスト送信 */
     const handleLogin = async () => {
@@ -85,13 +85,13 @@ export function LoginPage() {
                         </Typography>
 
                         <TextField
-                            label="メールアドレス"
-                            type="email"
+                            label="ログインID"
+                            type="text"
                             variant="outlined"
                             fullWidth
                             margin="dense"
-                            value={form.email}
-                            onChange={e => setForm({ ...form, email: e.target.value })}
+                            value={form.login_id}
+                            onChange={e => setForm({ ...form, login_id: e.target.value })}
                             sx={{
                                 "& .MuiOutlinedInput-root": {
                                     "& fieldset": { borderColor: "#444" },

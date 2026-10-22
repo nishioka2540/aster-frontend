@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../composables/useAuth';
+import { canManageShifts } from '../api/authApi';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -21,8 +24,16 @@ type CalendarView = 'dayGridDay' | 'dayGridWeek' | 'dayGridMonth';
 const plugins = [dayGridPlugin, interactionPlugin];
 
 export function ConfirmedShiftCalendar() {
+    const navigate = useNavigate();
+    const [params] = useSearchParams();
+    const { user } = useAuth();
+    const canEdit = !!user && canManageShifts(user);
     const calendar = useRef<FullCalendar>(null);
-    const [initialDate] = useState(() => nearestWeekday());
+    const [initialDate] = useState(() => {
+        const date = params.get('date') ?? '';
+        return /^\d{4}-\d{2}-\d{2}$/.test(date) && dayjs(date).isValid() && dayjs(date).format('YYYY-MM-DD') === date
+            ? nearestWeekday(new Date(`${date}T12:00:00+09:00`)) : nearestWeekday();
+    });
     const [selectedDate, setSelectedDate] = useState(initialDate);
     const [view, setView] = useState<CalendarView>('dayGridDay');
     const [title, setTitle] = useState('');
@@ -83,9 +94,9 @@ export function ConfirmedShiftCalendar() {
         <Container maxWidth="lg" sx={{ py: 3 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                 <Typography component="h1" fontSize={22} fontWeight={700}>出勤カレンダー</Typography>
-                <Chip label="閲覧専用" size="small" variant="outlined" />
+                <Chip label={canEdit ? 'シフト変更可能' : '閲覧専用'} size="small" variant="outlined" />
             </Stack>
-            <Typography color="text.secondary" fontSize={13} sx={{ mb: 2 }}>確定したシフトの出勤者と出退勤時間を確認できます。</Typography>
+            <Typography color="text.secondary" fontSize={13} sx={{ mb: 2 }}>確定したシフトの出勤者と出退勤時間を確認できます。{canEdit && ' 日表示から選択日のシフトを変更できます。'}</Typography>
             <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
                 <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
@@ -118,6 +129,10 @@ export function ConfirmedShiftCalendar() {
                 {!loading && !error && view === 'dayGridDay' && selectedDay && <Box sx={{ px: 2, py: 1.5 }}>
                     <Chip color={selectedDay.confirmed ? 'success' : 'default'}
                         label={!selectedDay.confirmed ? 'シフト未確定' : `出勤 ${selectedDay.count}人`} />
+                    {canEdit && selectedDay.request_ids?.map((requestId, index, ids) => <Button key={requestId} variant="contained" size="small" sx={{ ml: 1 }}
+                        onClick={() => navigate(`/shift_assignment?${new URLSearchParams({ requestId: String(requestId), date: selectedDate, source: 'confirmed' })}`)}>
+                        {ids.length > 1 ? `シフトを変更（${index + 1}）` : 'この日のシフトを変更'}
+                    </Button>)}
                 </Box>}
                 {view === 'dayGridWeek' && <Typography fontSize={12} color="text.secondary" sx={{ px: 2, pb: 1 }}>横にスクロールして各日の出勤者を確認できます。</Typography>}
                 <Box aria-busy={loading} sx={{ overflowX: 'auto', px: { xs: 1, sm: 2 }, pb: 2,
@@ -141,7 +156,7 @@ export function ConfirmedShiftCalendar() {
                             </Stack>} />
                 </Box>
             </Paper>
-            <Typography fontSize={12} color="text.secondary" sx={{ mt: 1.5 }}>土曜は前日の金曜、日曜は翌日の月曜を表示します。月表示の日付・出勤人数を押すと、その日の詳細を開きます。</Typography>
+            <Typography fontSize={12} color="text.secondary" sx={{ mt: 1.5 }}>土曜・日曜は翌月曜を表示します。月表示の日付・出勤人数を押すと、その日の詳細を開きます。</Typography>
         </Container>
     </MobilePageLayout>;
 }

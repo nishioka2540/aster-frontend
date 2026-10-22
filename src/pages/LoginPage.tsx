@@ -20,7 +20,7 @@ export function LoginPage() {
     const [params] = useSearchParams();
     const [redirecting, setRedirecting] = useState(false);
     const navigate = useNavigate();
-    const [email, setEmail] = useState('');
+    const [loginId, setLoginId] = useState('');
     const [password, setPassword] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [loginError, setLoginError] = useState<string | null>(null);
@@ -31,11 +31,11 @@ export function LoginPage() {
         setLoginError(null);
         setSubmitting(true);
         try {
-            await login({ email: email.trim(), password });
+            await login({ login_id: loginId.trim(), password });
             const loggedInUser = await fetchAuthUser();
             navigate(getHomePath(loggedInUser), { replace: true });
         } catch {
-            setLoginError('ログインに失敗しました。メールアドレス・パスワードと通信状況を確認して、もう一度お試しください。');
+            setLoginError('ログインに失敗しました。ログインID・パスワードと通信状況を確認して、もう一度お試しください。');
         } finally {
             setSubmitting(false);
         }
@@ -66,14 +66,14 @@ export function LoginPage() {
                 <Box component="form" onSubmit={handleLogin} sx={{ mt: 3, mx: 'auto', width: '100%', maxWidth: 360 }}>
                     {loginError && <Alert severity="error" sx={{ mb: 2 }}>{loginError}</Alert>}
                     <TextField
-                        label="メールアドレス"
-                        name="email"
-                        type="email"
+                        label="ログインID"
+                        name="login_id"
+                        type="text"
                         autoComplete="username"
                         required
                         fullWidth
-                        value={email}
-                        onChange={event => setEmail(event.target.value)}
+                        value={loginId}
+                        onChange={event => setLoginId(event.target.value)}
                         disabled={busy}
                     />
                     <TextField
@@ -89,7 +89,7 @@ export function LoginPage() {
                         sx={{ mt: 2 }}
                     />
                     <Button type="submit" variant="contained" fullWidth disabled={busy} sx={{ mt: 2 }}>
-                        {submitting ? 'ログイン中…' : 'メールアドレスでログイン'}
+                        {submitting ? 'ログイン中…' : 'ログインIDでログイン'}
                     </Button>
                     <Divider sx={{ mt: 3 }}>または</Divider>
                 </Box>
