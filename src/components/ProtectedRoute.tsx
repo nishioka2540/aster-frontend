@@ -2,18 +2,18 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../composables/useAuth";
 import React from "react";
-import { canManageShifts, canRegisterShifts, canViewConfirmedShifts, getHomePath } from '../api/authApi';
+import { canManageCasts, canManageShifts, canRegisterShifts, canViewConfirmedShifts, getHomePath } from '../api/authApi';
 
 export function ProtectedRoute({ children, access }: {
     children: React.ReactNode;
-    access?: 'manage' | 'register' | 'confirmed';
+    access?: 'manage' | 'register' | 'confirmed' | 'casts';
 }) {
     const { user, loading } = useAuth();
 
     if (loading) return <p>Loading...</p>;
     if (!user) return <Navigate to="/login" replace />;
     if ((access === 'manage' && !canManageShifts(user)) || (access === 'register' && !canRegisterShifts(user))
-        || (access === 'confirmed' && !canViewConfirmedShifts(user))) {
+        || (access === 'confirmed' && !canViewConfirmedShifts(user)) || (access === 'casts' && !canManageCasts(user))) {
         return <Navigate to={getHomePath(user)} replace />;
     }
 

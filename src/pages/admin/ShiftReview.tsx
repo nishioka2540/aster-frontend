@@ -129,7 +129,7 @@ export function ShiftReview() {
                 </TextField>}
                 {currentRequest && <Typography fontSize={14}>依頼期間：{currentRequest.period_start} 〜 {currentRequest.period_end}</Typography>}
                 {error && <Alert severity="error">{error}</Alert>}
-                {!loading && !error && !requests.length && <Alert severity="info">提出依頼はありません。</Alert>}
+                {!loading && !error && !requests.length && <Alert severity="info">今日以降を含む提出依頼はありません。</Alert>}
                 <Divider sx={{ mt: 2.5, mb: 3 }} />
                 <Box role="group" aria-label="シフトの日付" sx={{ display: 'flex', overflowX: 'auto', gap: 0.25, py: 0.5, px: 0.25 }}>
                     {dates.map((date) => {

@@ -1,27 +1,41 @@
-import { apiClient } from './apiClient';
+import { apiClient, setApiStore } from './apiClient';
 
+export type Store = { id: number; ulid: string; name: string };
+export type Membership = {
+    id: number;
+    store: Store;
+    access_role: { id: number; code: string; name: string };
+    role: { id: number; code: string; name: string } | null;
+    permissions: string[];
+};
 export type AuthUser = {
     id: number;
     name: string;
-    home_path?: string;
-    auth_type: 0 | 1;
-    user_type: 1 | 2;
-    role_type: 1 | 2 | 3 | 4 | 5;
+    login_id: string | null;
+    line_linked: boolean;
+    line_friend_url: string | null;
+    home_path: string;
+    is_system_admin: boolean;
+    memberships: Membership[];
+    stores: Store[];
+    active_store: Store | null;
+    active_membership: Membership | null;
+    permissions: string[];
 };
 
-export const fetchAuthUser = () => apiClient<AuthUser>('/api/user');
-
-export const canManageShifts = (user: AuthUser) =>
-    user.auth_type === 1 || (user.user_type === 1 && [1, 2].includes(user.role_type));
-
-export const canRegisterShifts = (user: AuthUser) =>
-    user.auth_type === 1 || user.user_type === 2;
-
-export const canViewConfirmedShifts = (user: AuthUser) =>
-    canManageShifts(user) || (user.user_type === 1 && user.role_type === 4)
-        || (user.user_type === 2 && user.role_type === 1);
-
-export const getHomePath = (user: AuthUser) =>
-    canManageShifts(user) ? '/request_shift'
-        : user.user_type === 1 && canViewConfirmedShifts(user) ? '/confirmed_shifts'
-        : canRegisterShifts(user) ? (user.home_path ?? '/submission') : '/access_denied';
+export const fetchAuthUser = async () => {
+    const user = await apiClient<AuthUser>('/api/user');
+    setApiStore(user.active_store?.id ?? null);
+    return user;
+};
+export const selectActiveStore = (storeId: number) => apiClient<AuthUser>('/api/user/active-store', {
+    method: 'POST', body: JSON.stringify({ store_id: storeId }),
+});
+export const startLineLink = () => apiClient<{ url: string }>('/auth/line/link', { method: 'POST' });
+export const isSystemAdministrator = (user: AuthUser) => user.is_system_admin === true;
+export const getAuthTypeLabel = (user: AuthUser) => isSystemAdministrator(user) ? 'System管理者' : '一般';
+export const canManageShifts = (user: AuthUser) => user.permissions.includes('shift.manage');
+export const canManageCasts = (user: AuthUser) => user.permissions.includes('cast.manage');
+export const canRegisterShifts = (user: AuthUser) => user.permissions.includes('shift.submit');
+export const canViewConfirmedShifts = (user: AuthUser) => user.permissions.includes('shift_calendar.view');
+export const getHomePath = (user: AuthUser) => user.home_path;

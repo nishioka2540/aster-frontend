@@ -4,6 +4,8 @@
  * HTTPメソッド、ヘッダー、ボディなどを設定できます。
  */
 import { getCsrfCookie } from './csrf';
+let activeStoreId: number | null = null;
+export const setApiStore = (storeId: number | null) => { activeStoreId = storeId; };
 
 interface ApiClientOptions {
     method?: string;
@@ -68,6 +70,7 @@ export const apiClient = async<T>(
 
     // 最終的なヘッダー
     const headers = new Headers(defaultHeaders);
+    if (activeStoreId !== null) headers.set('X-Store-Id', String(activeStoreId));
     new Headers(options?.headers).forEach((value, key) => headers.set(key, value));
     if (xsrfToken) headers.set('X-XSRF-TOKEN', xsrfToken);
 
