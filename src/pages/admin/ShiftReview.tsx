@@ -72,7 +72,7 @@ export function ShiftReview() {
     const dates = schedule?.days.filter((day) => day.date >= from && day.date <= to).map((day) => day.date) ?? [];
     // 選択日が新しい期間から外れた場合は先頭日へ切り替える。
     const active = dates.includes(selected) ? selected : dates[0];
-    const review = (active ? reviews[active] : undefined) ?? { count: 0, confirmed: false };
+    const review = (active ? reviews[active] : undefined) ?? { count: 0, required_count: 0, confirmed: false };
     // 空の期間や未確定の日が残る期間は、一括確定できない。
     const allConfirmed = dates.length > 0 && dates.every((date) => reviews[date]?.confirmed) && dates.some((date) => !reviews[date]?.finalized) && !!currentRequest && from >= currentRequest.period_start && to <= currentRequest.period_end;
     const isLoading = loading || scheduleLoading || (!!requestId && !schedule && !error);
@@ -153,7 +153,12 @@ export function ShiftReview() {
                 </Box>
                 {active && <Paper variant="outlined" component="section" aria-label={`${label(active)}のシフト`} sx={{ mt: 0.5, p: 1, pb: 2.5, borderRadius: 3, boxShadow: '0 2px 1px #0003' }}>
                     <Typography component="h2" fontSize={16} color="text.secondary" textAlign="center">{label(active)}</Typography>
-                    <Box sx={{ display: 'flex', gap: 8, mt: 1.5, mb: 4 }}><Typography>出勤</Typography><Typography>{review.count}人</Typography></Box>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'auto auto', justifyContent: 'start', columnGap: 6, rowGap: 1, mt: 1.5, mb: 4 }}>
+                        <Typography>出勤</Typography><Typography>{review.count}人</Typography>
+                        <Typography>必要人数</Typography><Typography>{review.required_count}人</Typography>
+                        <Typography color={review.required_count > review.count ? 'error' : 'text.primary'}>不足</Typography>
+                        <Typography color={review.required_count > review.count ? 'error' : 'text.primary'} fontWeight={600}>{Math.max(0, review.required_count - review.count)}人</Typography>
+                    </Box>
                     {/* 選択日と表示期間を引き継いで、出勤割り当て画面を開く。 */}
                     <Button variant="outlined" disabled={scheduleLoading || saving} onClick={() => {
                         const query = new URLSearchParams({ date: active, from, to, requestId: String(requestId) });

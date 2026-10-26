@@ -6,12 +6,12 @@ import "dayjs/locale/ja"
 import {
     Typography,
     Card,
+    Chip,
     FormControlLabel,
     TextField,
     Button,
     Box,
-    Radio,
-    RadioGroup,
+    Drawer,
     Alert,
 } from "@mui/material"
 import { getAcceptingShiftRequests, type AcceptingShiftRequest } from "../../api/shiftRequestApi"
@@ -23,7 +23,8 @@ import { IconButton, Switch } from "@mui/material"
 import { getCastShift, getMyShiftSubmissions, saveShiftDraft, saveCastShift, submitShift } from "../../api/shiftApi"
 import MobilePageLayout from "../../shared/layout/MobilePageLayout"
 import { Header } from "../../components/Header"
-import { DesktopTimePicker } from '@mui/x-date-pickers/DesktopTimePicker';
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined"
+import CloseIcon from "@mui/icons-material/Close"
 
 dayjs.locale("ja")
 
@@ -48,13 +49,16 @@ type ShiftRequest = {
  * 全体のシフト情報を表す型
  * @description
  * 依頼IDと日付のUNIXミリ秒をキーにし、その日の申請情報を保持する。
- * キーがない日は出勤・休みが未選択。
+ * キーがない日は休みとして扱う。
  */
 type ShiftState = Partial<Record<string, ShiftRequest>>
 
 export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
     const { requestId, castId } = useParams()
     const navigate = useNavigate()
+    const [editorDay, setEditorDay] = useState<string | null>(null)
+    const [timeInputs, setTimeInputs] = useState<Partial<Record<string, string>>>({})
+    const [customTime, setCustomTime] = useState({ startTime: false, endTime: false })
     const [castName, setCastName] = useState('')
     const [submitted, setSubmitted] = useState(false)
     const [submissions, setSubmissions] = useState<Record<number, { status: number; submitted_at: string | null }>>({})
@@ -137,8 +141,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
             for (let index = 0; index < count; index++) {
                 const date = from.add(index, 'day')
                 if (date.day() === 0 || date.day() === 6 || request.finalized_dates?.includes(date.format('YYYY-MM-DD'))) continue
-                const shift = shiftByDay[`${request.id}:${date.valueOf()}`]
-                if (!shift) continue
+                const shift = shiftByDay[`${request.id}:${date.valueOf()}`] ?? { work: false, hasReservation: false, note: '', startTime: null, endTime: null }
                 if ((shift.startTime && !shift.startTime.isValid()) || (shift.endTime && !shift.endTime.isValid())) {
                     setSubmitError(`${date.format('M/D')}の時刻を確認してください。未入力のまま保存する場合は時刻を空にしてください。`)
                     return
@@ -181,15 +184,15 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
             [day]: {
                 hasReservation: false,
                 note: '',
-                startTime: dayjs(Number(day.split(':')[1])).hour(20).minute(0),
-                endTime: dayjs(Number(day.split(':')[1])).add(1, 'day').startOf('day'),
                 ...previous[day],
+                startTime: previous[day]?.startTime ?? dayjs(Number(day.split(':')[1])).hour(20).minute(0),
+                endTime: previous[day]?.endTime ?? dayjs(Number(day.split(':')[1])).add(1, 'day').startOf('day'),
                 work,
             },
         }))
     }
 
-    // Pickerの時刻を対象日に結び直す。終了の00時は翌日として扱う。
+    // 選択した時刻を対象日に結び直す。終了の00時は翌日として扱う。
     // 空値・不正な入力はそのまま保持し、未選択の日には状態を追加しない。
     const updateTime = (day: string, field: 'startTime' | 'endTime', value: Dayjs | null) => {
         const date = dayjs(Number(day.split(':')[1])).startOf('day')
@@ -226,11 +229,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
             for (let index = 0; index < count; index++) {
                 const date = from.add(index, 'day')
                 if (date.day() === 0 || date.day() === 6 || request.finalized_dates?.includes(date.format('YYYY-MM-DD'))) continue
-                const shift = shiftByDay[`${request.id}:${date.valueOf()}`]
-                if (!shift) {
-                    setSubmitError(`${date.format('M/D')}の出勤・休みを選択してください。`)
-                    return
-                }
+                const shift = shiftByDay[`${request.id}:${date.valueOf()}`] ?? { work: false, hasReservation: false, note: '', startTime: null, endTime: null }
                 if (shift.work) {
                     const start = shift.startTime
                     const end = shift.endTime
@@ -238,8 +237,8 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
                     const endMinutes = end ? (end.hour() * 60 + end.minute() || 1440) : -1
                     if (!start?.isValid() || !end?.isValid() || startMinutes < 1200 || startMinutes > 1320
                         || endMinutes < 1320 || endMinutes > 1440 || endMinutes <= startMinutes
-                        || start.minute() % 15 !== 0 || end.minute() % 15 !== 0) {
-                        setSubmitError(`${date.format('M/D')}の出退勤時刻を確認してください。開始20:00〜22:00、終了22:00〜翌00:00の15分刻みで入力してください。`)
+) {
+                        setSubmitError(`${date.format('M/D')}の出退勤時刻を確認してください。開始20:00〜22:00、終了22:00〜翌00:00で入力してください。`)
                         return
                     }
                 }
@@ -351,7 +350,7 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
 
                             <Typography>
                                 ※締切：{dayjs(request.submission_deadline).format('M月D日(ddd) HH:mm')}
-                                <Typography component="span" variant="caption" display="block">{admin ? '（管理者は締切後も変更できます。）' : '（締切日までは変更できます。未提出の場合は締切後も提出できます。）'}</Typography>
+                                <Typography component="span" variant="caption" display="block">{admin ? '（管理者は締切後も変更できます。）' : '（締切日までは変更できます。）'}</Typography>
                             </Typography>
                             {!admin && <Box sx={{ mt: 1 }}>
                                 <SubmissionStatus status={submissions[request.id]?.status} />
@@ -379,116 +378,24 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
                                         mb: 2,
                                     }}
                                 >
-                                    {/* 日付と出勤・休みの選択。未選択時はどちらもチェックしない。 */}
-                                    <Box
-                                        sx={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            md: '2'
-                                        }}
-                                    >
-                                        <Typography variant="h6" fontWeight={700}>
-                                            {d.format('M月D日(ddd)')}
-                                        </Typography>
-
-                                        <Box>
-                                            <RadioGroup
-                                                row
-                                                value={shift ? (shift.work ? 'work' : 'off') : ''}
-                                                onChange={(_, value) => toggleWork(dayKey, value === 'work')}
-                                            >
-                                                <FormControlLabel value="work" control={<Radio color="secondary" size="small" />} label="出勤" />
-                                                <FormControlLabel value="off" control={<Radio color="secondary" size="small" />} label="休み" />
-                                            </RadioGroup>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                                            <Typography fontWeight={700}>{d.format('M/D(ddd)')}</Typography>
+                                            {shift?.work && <Typography fontSize={16} fontWeight={600}>{shift.startTime?.format('HH:mm') ?? '未設定'} 〜 {shift.endTime?.format('HH:mm') === '00:00' ? '24:00' : shift.endTime?.format('HH:mm') ?? '未設定'}</Typography>}
+                                            {shift?.work && shift.hasReservation && <Chip label="同伴予約" size="small" sx={{ bgcolor: theme => theme.palette.status.reserved.main, color: '#fff', fontWeight: 600 }} />}
                                         </Box>
+                                        <Switch color="secondary" checked={shift?.work ?? false}
+                                            inputProps={{ 'aria-label': `${d.format('M月D日')}の出勤` }}
+                                            onChange={(_, checked) => toggleWork(dayKey, checked)} />
+                                        {shift?.work && <IconButton size="small" aria-label={`${d.format('M月D日')}のシフトを編集`} onClick={() => {
+                                            setCustomTime({ startTime: false, endTime: false })
+                                            setTimeInputs({})
+                                            setEditorDay(dayKey)
+                                        }}><EditOutlinedIcon fontSize="small" /></IconButton>}
                                     </Box>
-
-                                    {/* 出勤日のみ詳細を表示する。休みに切り替えても入力済みの状態は保持する。 */}
-                                    <Box sx={{ display: shift?.work ? 'block' : 'none' }}>
-                                        {/* 出退勤時刻は15分刻みで選択する。 */}
-                                        <Box
-                                            sx={{
-                                                display: 'flex',
-                                                gap: 2,
-                                                mt: 1,
-                                                mb: 2,
-                                            }}
-                                        >
-                                            {/* 開始時刻の選択範囲は20:00〜22:00。 */}
-                                            <DesktopTimePicker
-                                                disabled={submitting || !editable}
-                                                label="開始"
-                                                timeSteps={{ minutes: 15 }}
-                                                ampm={false}
-                                                format="HH:mm"
-                                                minTime={d.startOf('day').hour(20)}
-                                                maxTime={d.startOf('day').hour(22)}
-                                                skipDisabled
-                                                value={shift?.startTime ?? null}
-                                                onChange={value => updateTime(dayKey, 'startTime', value)}
-                                            />
-
-                                            {/* 終了時刻は22:00〜23:45と翌日00:00を許可する。 */}
-                                            <DesktopTimePicker
-                                                disabled={submitting || !editable}
-                                                label="終了"
-                                                timeSteps={{ minutes: 15 }}
-                                                ampm={false}
-                                                format="HH:mm"
-                                                shouldDisableTime={(value, view) => {
-                                                    const hour = value.hour()
-                                                    if (view === 'hours') {
-                                                        return hour !== 0 && hour < 22
-                                                    }
-                                                    return hour === 0 && value.minute() !== 0
-                                                }}
-                                                skipDisabled
-                                                value={shift?.endTime ?? null}
-                                                onChange={value => updateTime(dayKey, 'endTime', value)}
-                                            />
-
-                                        </Box>
-
-                                        {/* 同伴予約有無 */}
-                                        <Box sx={{
-                                            display: 'flex',
-                                            gap: 2,
-                                            mb: 2,
-                                            alignItems: 'center',
-                                            borderColor: 'divider',
-                                            justifyContent: 'space-between',
-                                        }}>
-
-                                            <Typography variant="body1">同伴･予約</Typography>
-                                            {admin ? <Switch color="secondary" checked={shift?.hasReservation ?? false} onChange={(_, checked) => updateDetails(dayKey, { hasReservation: checked })} inputProps={{ 'aria-label': '同伴・予約あり' }} /> : <RadioGroup row value={shift?.hasReservation ? 'reserved' : 'unreserved'}
-                                                onChange={(_, value) => updateDetails(dayKey, { hasReservation: value === 'reserved' })}>
-                                                <FormControlLabel value="reserved" control={<Radio color="secondary" size="small" />} label="有" />
-                                                <FormControlLabel value="unreserved" control={<Radio color="secondary" size="small" />} label="無" />
-                                            </RadioGroup>}
-
-                                        </Box>
-                                        {/* / 同伴・予約有無 */}
-
-                                        {/* 備考 */}
-                                        <Box sx={{
-                                            pt: 2,
-                                            borderTop: '1px solid',
-                                            borderColor: 'divider'
-                                        }}>
-
-                                            <Typography variant="body2" sx={{ mb: 1 }}>備考</Typography>
-                                            <TextField
-                                                fullWidth
-                                                value={shift?.note ?? ''}
-                                                onChange={event => updateDetails(dayKey, { note: event.target.value })}
-                                                inputProps={{ maxLength: 1000 }}
-                                                placeholder="ノンアル、〇〇様 〇名"
-                                                variant="standard"
-                                            />
-                                        </Box>
-
-                                    </Box>
+                                    {shift?.work && <Typography fontSize={13} color="text.secondary" sx={{ mt: 0.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                                        備考{shift.note ? `：${shift.note}` : '：なし'}
+                                    </Typography>}
                                 </Card>
                             )
                         })}
@@ -497,6 +404,55 @@ export function ShiftCreatePage({ admin = false }: { admin?: boolean }) {
                 })}
 
             </Box>
+            <Drawer anchor="bottom" open={editorDay !== null} onClose={() => setEditorDay(null)}
+                PaperProps={{ sx: { borderRadius: '20px 20px 0 0', maxHeight: '90dvh', pb: 'env(safe-area-inset-bottom)' }, role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'shift-editor-title' }}>
+                {editorDay && shiftByDay[editorDay] && <Box sx={{ p: 2.5, width: '100%', maxWidth: 600, mx: 'auto', boxSizing: 'border-box' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography id="shift-editor-title" variant="h6" fontWeight={700}>{dayjs(Number(editorDay.split(':')[1])).format('M月D日(ddd)')}のシフト</Typography>
+                        <IconButton aria-label="編集を閉じる" onClick={() => setEditorDay(null)}><CloseIcon /></IconButton>
+                    </Box>
+                    {(['startTime', 'endTime'] as const).map(field => {
+                        const label = field === 'startTime' ? '出勤' : '退勤'
+                        const presets = field === 'startTime' ? [1200, 1230, 1260, 1290, 1320] : [1320, 1350, 1380, 1410, 1440]
+                        const value = shiftByDay[editorDay]?.[field]
+                        const minutes = value ? (field === 'endTime' && value.hour() === 0 ? 1440 : value.hour() * 60 + value.minute()) : null
+                        const other = customTime[field] || minutes === null || !presets.includes(minutes)
+                        const formatTime = (minute: number) => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`
+                        const selectTime = (minute: number) => updateTime(editorDay, field, dayjs(Number(editorDay.split(':')[1])).startOf('day').add(minute, 'minute'))
+                        return <Box key={field} sx={{ mb: 3 }}>
+                            <Typography fontWeight={700} sx={{ mb: 1 }}>{label}</Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {presets.map(minute => <Button key={minute} color="secondary" variant={!other && minutes === minute ? 'contained' : 'outlined'} onClick={() => {
+                                    setCustomTime(current => ({ ...current, [field]: false }))
+                                    setTimeInputs(current => ({ ...current, [`${editorDay}:${field}`]: formatTime(minute) }))
+                                    selectTime(minute)
+                                }}>{formatTime(minute)}</Button>)}
+                                <Button color="secondary" variant={other ? 'contained' : 'outlined'} onClick={() => setCustomTime(current => ({ ...current, [field]: true }))}>その他</Button>
+                            </Box>
+                            {other && <TextField fullWidth size="small" label={`${label}時刻（HH:mm）`}
+                                value={timeInputs[`${editorDay}:${field}`] ?? (minutes === null ? '' : formatTime(minutes))}
+                                placeholder={field === 'startTime' ? '20:00' : '23:25'} sx={{ mt: 2 }}
+                                inputProps={{ maxLength: 5, inputMode: 'text', pattern: '(?:[01][0-9]|2[0-3]):[0-5][0-9]|24:00' }}
+                                error={minutes === null}
+                                helperText={minutes === null ? 'HH:mm形式で入力してください。' : field === 'startTime' ? '20:00〜22:00（1分単位）' : '22:00〜24:00（1分単位）'}
+                                onChange={event => {
+                                    const text = event.target.value.replace(/[^0-9:]/g, '')
+                                    setTimeInputs(current => ({ ...current, [`${editorDay}:${field}`]: text }))
+                                    if (/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(text) || (field === 'endTime' && text === '24:00')) {
+                                        const [hour, minute] = text.split(':').map(Number)
+                                        selectTime(hour * 60 + minute)
+                                    } else updateTime(editorDay, field, null)
+                                }} />}
+
+                        </Box>
+                    })}
+                    <FormControlLabel label="同伴予約あり" labelPlacement="start" sx={{ display: 'flex', justifyContent: 'space-between', mx: 0, mb: 2 }}
+                        control={<Switch color="secondary" checked={shiftByDay[editorDay]?.hasReservation ?? false} onChange={(_, checked) => updateDetails(editorDay, { hasReservation: checked })} />} />
+                    <TextField label="備考" fullWidth multiline minRows={2} value={shiftByDay[editorDay]?.note ?? ''}
+                        onChange={event => updateDetails(editorDay, { note: event.target.value })} inputProps={{ maxLength: 1000 }} placeholder="ノンアル、〇〇様 〇名" />
+                    <Button fullWidth variant="contained" color="secondary" sx={{ mt: 2, minHeight: 44 }} onClick={() => setEditorDay(null)}>完了</Button>
+                </Box>}
+            </Drawer>
             {!admin && <Box component="footer" aria-label="シフト提出操作" sx={{
                 position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1200,
                 display: 'flex', bgcolor: 'background.paper', borderTop: '1px solid', borderColor: 'divider',

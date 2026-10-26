@@ -1,13 +1,13 @@
 import { apiClient } from './apiClient';
 import type { CastAssignment } from '../features/shift/assignmentStore';
 
-export type ScheduleReview = { confirmed: boolean; confirmation_available: boolean; days: { date: string; confirmed: boolean; finalized: boolean; count: number }[] };
+export type ScheduleReview = { confirmed: boolean; confirmation_available: boolean; days: { date: string; confirmed: boolean; finalized: boolean; count: number; required_count: number }[] };
 const base = (id: number) => `/api/admin/shift-requests/${id}/schedule`;
 export const getScheduleReview = (id: number) => apiClient<ScheduleReview>(base(id));
 export const getScheduleAssignments = (id: number, date: string) =>
-    apiClient<{ confirmed: boolean; casts: CastAssignment[]; candidates: { id: string; name: string }[] }>(`${base(id)}/days/${date}`);
-export const decideScheduleDay = (id: number, date: string, casts: CastAssignment[]) =>
-    apiClient<{ message: string }>(`${base(id)}/days/${date}`, { method: 'PUT', body: JSON.stringify({ casts }) });
+    apiClient<{ required_count: number; confirmed: boolean; casts: CastAssignment[]; candidates: { id: string; name: string }[] }>(`${base(id)}/days/${date}`);
+export const decideScheduleDay = (id: number, date: string, casts: CastAssignment[], requiredCount: number) =>
+    apiClient<{ message: string }>(`${base(id)}/days/${date}`, { method: 'PUT', body: JSON.stringify({ casts, required_count: requiredCount }) });
 export const confirmSchedule = (id: number, from: string, to: string, notifyLine = false) => apiClient<{ message: string }>(`${base(id)}/confirm`, { method: 'POST', body: JSON.stringify({ from, to, notify_line: notifyLine }) });
 
 export type PublishedSchedule = { from: string; to: string; finalized_dates: string[]; shifts: { date: string; start: string; end: string; reserved: boolean }[] };
@@ -18,6 +18,7 @@ export type ConfirmedCalendarDay = {
     date: string;
     confirmed: boolean;
     count: number;
+    required_count: number;
     casts: { id: string; name: string; start: string; end: string }[];
 };
 export const getConfirmedCalendar = (from: string, to: string) =>

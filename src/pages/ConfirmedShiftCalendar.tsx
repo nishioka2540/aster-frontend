@@ -69,11 +69,12 @@ export function ConfirmedShiftCalendar() {
 
     const openDay = (date: string) => calendar.current?.getApi().changeView('dayGridDay', date);
     const events = useMemo<EventInput[]>(() => days.filter(day => ![0, 6].includes(dayjs(day.date).day())).flatMap<EventInput>(day => {
-        const status = !day.confirmed ? '未確定' : day.count ? `出勤 ${day.count}人` : '出勤者なし';
+        const status = !day.confirmed ? '未確定' : `${day.count} / ${day.required_count}`;
+        const shortage = day.confirmed && day.count < day.required_count;
         if (view === 'dayGridMonth' || !day.confirmed || !day.count) {
             return [{ id: day.date, start: day.date, allDay: true, title: status,
-                backgroundColor: day.confirmed ? '#edf7ed' : '#f4f4f5',
-                borderColor: 'transparent', textColor: day.confirmed ? '#25632b' : '#666',
+                backgroundColor: shortage ? '#fdeded' : day.confirmed ? '#edf7ed' : '#f4f4f5',
+                borderColor: 'transparent', textColor: shortage ? '#d32f2f' : day.confirmed ? '#25632b' : '#666',
                 extendedProps: { date: day.date, summary: true } }];
         }
         const members: EventInput[] = day.casts.map(cast => ({
@@ -83,7 +84,7 @@ export function ConfirmedShiftCalendar() {
         }));
         return view === 'dayGridWeek' ? [{
             id: `${day.date}-count`, start: day.date, allDay: true, title: status,
-            backgroundColor: 'transparent', borderColor: 'transparent', textColor: '#25632b',
+            backgroundColor: 'transparent', borderColor: 'transparent', textColor: shortage ? '#d32f2f' : '#25632b',
             extendedProps: { date: day.date, summary: true, order: 0 },
         }, ...members] : members;
     }), [days, view]);
@@ -127,8 +128,8 @@ export function ConfirmedShiftCalendar() {
                 <Box sx={{ height: 4 }}>{loading && <LinearProgress aria-label="シフトを読み込み中" />}</Box>
                 {error && <Alert severity="error" action={<Button color="inherit" onClick={() => setRetry(value => value + 1)}>再読み込み</Button>}>{error}</Alert>}
                 {!loading && !error && view === 'dayGridDay' && selectedDay && <Box sx={{ px: 2, py: 1.5 }}>
-                    <Chip color={selectedDay.confirmed ? 'success' : 'default'}
-                        label={!selectedDay.confirmed ? 'シフト未確定' : `出勤 ${selectedDay.count}人`} />
+                    <Chip color={!selectedDay.confirmed ? 'default' : selectedDay.count < selectedDay.required_count ? 'error' : 'success'}
+                        label={!selectedDay.confirmed ? 'シフト未確定' : `${selectedDay.count} / ${selectedDay.required_count}`} />
                     {canEdit && selectedDay.request_ids?.map((requestId, index, ids) => <Button key={requestId} variant="contained" size="small" sx={{ ml: 1 }}
                         onClick={() => navigate(`/shift_assignment?${new URLSearchParams({ requestId: String(requestId), date: selectedDate, source: 'confirmed' })}`)}>
                         {ids.length > 1 ? `シフトを変更（${index + 1}）` : 'この日のシフトを変更'}
@@ -156,6 +157,7 @@ export function ConfirmedShiftCalendar() {
                             </Stack>} />
                 </Box>
             </Paper>
+            <Typography fontSize={12} color="text.secondary" sx={{ mt: 1.5 }}>人数は「出勤 / 必要人数」で表示します。赤字は人数不足です。</Typography>
             <Typography fontSize={12} color="text.secondary" sx={{ mt: 1.5 }}>土曜・日曜は翌月曜を表示します。月表示の日付・出勤人数を押すと、その日の詳細を開きます。</Typography>
         </Container>
     </MobilePageLayout>;

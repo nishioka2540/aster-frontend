@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Alert, Avatar, Box, Button, Chip, Container, Divider, LinearProgress, Paper, Stack, Typography } from '@mui/material';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import { useSearchParams } from 'react-router-dom';
-import { getAuthTypeLabel, startLineLink } from '../api/authApi';
+import { startLineLink } from '../api/authApi';
 import { Header } from '../components/Header';
 import { useAuth } from '../composables/useAuth';
 import MobilePageLayout from '../shared/layout/MobilePageLayout';
@@ -53,14 +53,12 @@ export function MyPage() {
                     </Stack>
                     <Divider />
                     <Box component="dl" sx={{ m: 0, pt: 2, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 2 }}>
-                        <Typography component="dt" color="text.secondary">選択中の店舗</Typography>
+                        <Typography component="dt" color="text.secondary">店舗</Typography>
                         <Typography component="dd" sx={{ m: 0 }}>{user.active_store?.name ?? '未選択'}</Typography>
                         <Typography component="dt" color="text.secondary">区分</Typography>
                         <Typography component="dd" sx={{ m: 0 }}>{user.active_membership?.access_role.name ?? '所属なし'}</Typography>
                         <Typography component="dt" color="text.secondary">役職</Typography>
                         <Typography component="dd" sx={{ m: 0 }}>{user.active_membership?.role?.name ?? '役職なし'}</Typography>
-                        <Typography component="dt" color="text.secondary">アカウント権限</Typography>
-                        <Typography component="dd" sx={{ m: 0 }}>{getAuthTypeLabel(user)}</Typography>
                     </Box>
                 </Paper>
                 {user.line_linked && user.line_friend_url && <Paper component="section" aria-label="LINE通知ボット" variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
@@ -71,13 +69,6 @@ export function MyPage() {
                 </Paper>}
                 {!user.memberships.length && !user.is_system_admin && <Alert severity="info">所属店舗が登録されていません。店舗管理者にお問い合わせください。</Alert>}
                 {!user.active_store && user.stores.length > 0 && <Alert severity="info">ヘッダーから利用する店舗を選択してください。</Alert>}
-                {user.memberships.map(membership => <Paper key={membership.id} component="section" aria-label={`${membership.store.name}の所属情報`} variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
-                    <Typography component="h2" fontSize={16} fontWeight={600}>{membership.store.name}</Typography>
-                    <Typography sx={{ mt: 1 }}>{membership.access_role.name} ／ {membership.role?.name ?? '役職なし'}</Typography>
-                    <Typography color="text.secondary" fontSize={14} sx={{ mt: 1 }}>
-                        利用可能な機能：{membership.permissions.map(permission => ({ 'shift.manage': 'シフト管理', 'shift.submit': '自分のシフト提出・確認', 'shift_calendar.view': '出勤カレンダー閲覧', 'cast.manage': 'キャスト管理' }[permission] ?? permission)).join('、') || 'なし'}
-                    </Typography>
-                </Paper>)}
                 <Paper component="section" aria-label="LINE連携" variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                         <Typography component="h2" fontSize={16} fontWeight={600}>LINE連携</Typography>
